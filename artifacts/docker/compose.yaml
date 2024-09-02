@@ -1,0 +1,7 @@
+services:
+  ani_android_pi:
+    build: .
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    volumes:
+      - ./code:/app/code

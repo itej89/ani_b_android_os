@@ -1,0 +1,11 @@
+//open adb shell
+//remount system as writre enable
+mount -o rw,remount /system
+
+//edit /system/build.prop using vim
+vim /system/build.prop
+
+//append below line
+config.override_forced_orient=true
+
+//reboot

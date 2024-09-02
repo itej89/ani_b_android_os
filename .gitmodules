@@ -1,0 +1,3 @@
+[submodule "pie-device-brobwind-rpi3"]
+	path = pie-device-brobwind-rpi3
+	url = https://github.com/brobwind/pie-device-brobwind-rpi3.git

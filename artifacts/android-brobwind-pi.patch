@@ -1,0 +1,453 @@
+
+project frameworks/av/
+diff --git a/services/audiopolicy/config/primary_audio_policy_configuration.xml b/services/audiopolicy/config/primary_audio_policy_configuration.xml
+index 5b7ae7f756..dfad71c6a2 100644
+--- a/services/audiopolicy/config/primary_audio_policy_configuration.xml
++++ b/services/audiopolicy/config/primary_audio_policy_configuration.xml
+@@ -11,21 +11,48 @@
+             <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                      samplingRates="44100" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
+         </mixPort>
++
++
++        <mixPort name="fast" role="source" flags="AUDIO_OUTPUT_FLAG_FAST">
++            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
++                        samplingRates="44100,48000" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
++        </mixPort>
++        <mixPort name="hdmi stereo" role="source">
++            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
++                        samplingRates="44100" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
++        </mixPort>
++        <mixPort name="hdmi multi-ch" role="source" flags="AUDIO_OUTPUT_FLAG_DIRECT">
++            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
++                        samplingRates="32000,44100,48000"/>
++        </mixPort>
++
++
+         <mixPort name="primary input" role="sink">
+             <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
+                      samplingRates="8000,16000" channelMasks="AUDIO_CHANNEL_IN_MONO"/>
+         </mixPort>
+    </mixPorts>
++
+    <devicePorts>
+         <devicePort tagName="Speaker" type="AUDIO_DEVICE_OUT_SPEAKER" role="sink">
+         </devicePort>
+ 
++        <devicePort tagName="HDMI Out" type="AUDIO_DEVICE_OUT_AUX_DIGITAL" role="sink">
++            <profile name="" format="AUDIO_FORMAT_PCM_16_BIT"
++                        samplingRates="32000,44100,48000"/>
++        </devicePort>
++
+         <devicePort tagName="Built-In Mic" type="AUDIO_DEVICE_IN_BUILTIN_MIC" role="source">
+         </devicePort>
+     </devicePorts>
++
+     <routes>
+         <route type="mix" sink="Speaker"
+                sources="primary output"/>
++
++        <route type="mix" sink="HDMI Out"
++                sources="hdmi stereo,hdmi multi-ch"/>
++
+         <route type="mix" sink="primary input"
+                sources="Built-In Mic"/>
+     </routes>
+
+project frameworks/base/
+diff --git a/Android.bp b/Android.bp
+index 22fe23dc85e..0535c0559eb 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -349,6 +349,8 @@ java_library {
+         "core/java/android/view/IWindowManager.aidl",
+         "core/java/android/view/IWindowSession.aidl",
+         "core/java/android/view/IWindowSessionCallback.aidl",
++        "core/java/android/fouriermachines/inputproxy/IInputEventAnchor.aidl",
++        "core/java/android/fouriermachines/inputproxy/InputEventListener.aidl",
+         "core/java/android/webkit/IWebViewUpdateService.aidl",
+         "core/java/android/speech/IRecognitionListener.aidl",
+         "core/java/android/speech/IRecognitionService.aidl",
+@@ -585,6 +587,7 @@ java_library {
+         "core/java/android/service/quicksettings/IQSService.aidl",
+         "core/java/android/service/quicksettings/IQSTileService.aidl",
+ 
++
+         ":libupdate_engine_aidl",
+ 
+         ":storaged_aidl",
+diff --git a/api/current.txt b/api/current.txt
+index 557d5365a92..24f1b0db784 100644
+--- a/api/current.txt
++++ b/api/current.txt
+@@ -7056,6 +7056,22 @@ package android.app.backup {
+ 
+ }
+ 
++package android.app.fouriermachines.inputproxy {
++
++  public class InputEventAnchor extends android.fouriermachines.inputproxy.InputEventListener.Stub {
++    method public static synchronized android.app.fouriermachines.inputproxy.InputEventAnchor getInputEventAnchor();
++    method public void onKeyEvent(android.view.KeyEvent);
++    method public void onMotionEvent(android.view.MotionEvent);
++    method public void register_events(android.app.fouriermachines.inputproxy.InputEventMonitor);
++  }
++
++  public abstract interface InputEventMonitor {
++    method public abstract void onKeyEvent(android.view.KeyEvent);
++    method public abstract void onMotionEvent(android.view.MotionEvent);
++  }
++
++}
++
+ package android.app.job {
+ 
+   public class JobInfo implements android.os.Parcelable {
+@@ -9498,6 +9514,7 @@ package android.content {
+     field public static final java.lang.String EUICC_SERVICE = "euicc";
+     field public static final java.lang.String FINGERPRINT_SERVICE = "fingerprint";
+     field public static final java.lang.String HARDWARE_PROPERTIES_SERVICE = "hardware_properties";
++    field public static final java.lang.String INPUT_EVENT_ANCHOR_SERVICE = "input_event_anchor";
+     field public static final java.lang.String INPUT_METHOD_SERVICE = "input_method";
+     field public static final java.lang.String INPUT_SERVICE = "input";
+     field public static final java.lang.String IPSEC_SERVICE = "ipsec";
+@@ -12926,6 +12943,22 @@ package android.drm {
+ 
+ }
+ 
++package android.fouriermachines.inputproxy {
++
++  public abstract interface InputEventListener implements android.os.IInterface {
++    method public abstract void onKeyEvent(android.view.KeyEvent) throws android.os.RemoteException;
++    method public abstract void onMotionEvent(android.view.MotionEvent) throws android.os.RemoteException;
++  }
++
++  public static abstract class InputEventListener.Stub extends android.os.Binder implements android.fouriermachines.inputproxy.InputEventListener {
++    ctor public InputEventListener.Stub();
++    method public android.os.IBinder asBinder();
++    method public static android.fouriermachines.inputproxy.InputEventListener asInterface(android.os.IBinder);
++    method public boolean onTransact(int, android.os.Parcel, android.os.Parcel, int) throws android.os.RemoteException;
++  }
++
++}
++
+ package android.gesture {
+ 
+   public class Gesture implements android.os.Parcelable {
+@@ -32963,6 +32996,7 @@ package android.os {
+     method public boolean isWakeLockLevelSupported(int);
+     method public android.os.PowerManager.WakeLock newWakeLock(int, java.lang.String);
+     method public void reboot(java.lang.String);
++    method public void shutdown(boolean, java.lang.String, boolean);
+     field public static final int ACQUIRE_CAUSES_WAKEUP = 268435456; // 0x10000000
+     field public static final java.lang.String ACTION_DEVICE_IDLE_MODE_CHANGED = "android.os.action.DEVICE_IDLE_MODE_CHANGED";
+     field public static final java.lang.String ACTION_POWER_SAVE_MODE_CHANGED = "android.os.action.POWER_SAVE_MODE_CHANGED";
+diff --git a/api/test-current.txt b/api/test-current.txt
+index e34614e966c..2bd60b809c5 100644
+--- a/api/test-current.txt
++++ b/api/test-current.txt
+@@ -248,8 +248,8 @@ package android.content.pm {
+   public abstract class PackageManager {
+     method public abstract java.lang.String getDefaultBrowserPackageNameAsUser(int);
+     method public abstract int getInstallReason(java.lang.String, android.os.UserHandle);
+-    method public abstract java.util.List<android.content.pm.PackageInfo> getInstalledPackagesAsUser(int, int);
+     method public abstract java.util.List<android.content.pm.ApplicationInfo> getInstalledApplicationsAsUser(int, int);
++    method public abstract java.util.List<android.content.pm.PackageInfo> getInstalledPackagesAsUser(int, int);
+     method public abstract java.lang.String[] getNamesForUids(int[]);
+     method public abstract java.lang.String getPermissionControllerPackageName();
+     method public abstract java.lang.String getServicesSystemSharedLibraryPackageName();
+diff --git a/core/java/android/app/SystemServiceRegistry.java b/core/java/android/app/SystemServiceRegistry.java
+index db011dabac9..b86996272e0 100644
+--- a/core/java/android/app/SystemServiceRegistry.java
++++ b/core/java/android/app/SystemServiceRegistry.java
+@@ -162,6 +162,8 @@ import com.android.internal.net.INetworkWatchlistManager;
+ import com.android.internal.os.IDropBoxManagerService;
+ import com.android.internal.policy.PhoneLayoutInflater;
+ 
++import android.app.fouriermachines.inputproxy.InputEventAnchor;
++
+ import java.util.HashMap;
+ 
+ /**
+@@ -183,6 +185,15 @@ final class SystemServiceRegistry {
+     private SystemServiceRegistry() { }
+ 
+     static {
++
++        registerService(Context.INPUT_EVENT_ANCHOR_SERVICE, InputEventAnchor.class,
++                new CachedServiceFetcher<InputEventAnchor>() {
++            @Override
++            public InputEventAnchor createService(ContextImpl ctx) {
++                return InputEventAnchor.getInputEventAnchor();
++            }});
++
++
+         registerService(Context.ACCESSIBILITY_SERVICE, AccessibilityManager.class,
+                 new CachedServiceFetcher<AccessibilityManager>() {
+             @Override
+diff --git a/core/java/android/content/Context.java b/core/java/android/content/Context.java
+index 90a94ee7608..acd170a6d82 100644
+--- a/core/java/android/content/Context.java
++++ b/core/java/android/content/Context.java
+@@ -3058,6 +3058,7 @@ public abstract class Context {
+             COMPANION_DEVICE_SERVICE,
+             CROSS_PROFILE_APPS_SERVICE,
+             //@hide: SYSTEM_UPDATE_SERVICE,
++            INPUT_EVENT_ANCHOR_SERVICE,
+     })
+     @Retention(RetentionPolicy.SOURCE)
+     public @interface ServiceName {}
+@@ -3129,6 +3130,9 @@ public abstract class Context {
+      * usage statistics.
+      * <dt> {@link #HARDWARE_PROPERTIES_SERVICE} ("hardware_properties")
+      * <dd> A {@link android.os.HardwarePropertiesManager} for accessing hardware properties.
++     * <dt> {@link #INPUT_EVENT_ANCHOR_SERVICE} ("input_event_anchor")
++     * <dd> A {@link android.app.fouriermachines.inputproxy.InputEventAnchor} for accessing hardware properties.
++     
+      * </dl>
+      *
+      * <p>Note:  System services obtained via this API may be closely associated with
+@@ -3200,6 +3204,9 @@ public abstract class Context {
+      * @see android.app.usage.NetworkStatsManager
+      * @see android.os.HardwarePropertiesManager
+      * @see #HARDWARE_PROPERTIES_SERVICE
++     * @see android.app.fouriermachines.inputproxy.InputEventAnchor
++     * @see #INPUT_EVENT_ANCHOR_SERVICE
++     
+      */
+     public abstract @Nullable Object getSystemService(@ServiceName @NonNull String name);
+ 
+@@ -3219,7 +3226,8 @@ public abstract class Context {
+      * {@link android.view.inputmethod.InputMethodManager},
+      * {@link android.app.UiModeManager}, {@link android.app.DownloadManager},
+      * {@link android.os.BatteryManager}, {@link android.app.job.JobScheduler},
+-     * {@link android.app.usage.NetworkStatsManager}.
++     * {@link android.app.usage.NetworkStatsManager}.,
++     * {@link android.app.fouriermachines.inputproxy.InputEventAnchor}.
+      * </p><p>
+      * Note: System services obtained via this API may be closely associated with
+      * the Context in which they are obtained from.  In general, do not share the
+@@ -3294,6 +3302,20 @@ public abstract class Context {
+      */
+     public static final String WINDOW_SERVICE = "window";
+ 
++
++    /**
++     * Use with {@link #getSystemService(String)} to retrieve a
++     * {@link android.app.fouriermachines.inputproxy.InputEventAnchor} for accessing the system's window
++     * manager.
++     *
++     * @see #getSystemService(String)
++     * @see android.app.fouriermachines.inputproxy.InputEventAnchor
++     */
++    public static final String INPUT_EVENT_ANCHOR_SERVICE = "input_event_anchor";
++
++    
++
++
+     /**
+      * Use with {@link #getSystemService(String)} to retrieve a
+      * {@link android.view.LayoutInflater} for inflating layout resources in this
+diff --git a/core/java/android/os/PowerManager.java b/core/java/android/os/PowerManager.java
+index 9c258487447..9ee589965ef 100644
+--- a/core/java/android/os/PowerManager.java
++++ b/core/java/android/os/PowerManager.java
+@@ -1251,7 +1251,6 @@ public final class PowerManager {
+      * @param reason code to pass to android_reboot() (e.g. "userrequested"), or null.
+      * @param wait If true, this call waits for the shutdown to complete and does not return.
+      *
+-     * @hide
+      */
+     public void shutdown(boolean confirm, String reason, boolean wait) {
+         try {
+diff --git a/services/core/java/com/android/server/wm/DisplayContent.java b/services/core/java/com/android/server/wm/DisplayContent.java
+index cd8fdbfbc64..260e7b61afb 100644
+--- a/services/core/java/com/android/server/wm/DisplayContent.java
++++ b/services/core/java/com/android/server/wm/DisplayContent.java
+@@ -769,8 +769,9 @@ class DisplayContent extends WindowContainer<DisplayContent.DisplayChildWindowCo
+         // appropriately arbitrary number. Eventually we would like to give SurfaceFlinger
+         // layers the ability to match their parent sizes and be able to skip
+         // such arbitrary size settings.
+-        mSurfaceSize = Math.max(mBaseDisplayHeight, mBaseDisplayWidth) * 2;
+-
++       // mSurfaceSize = Math.max(mBaseDisplayHeight, mBaseDisplayWidth) * 2;
++        mSurfaceSize = (int)(Math.max(mBaseDisplayHeight, mBaseDisplayWidth) * 1.4);
++        
+         final SurfaceControl.Builder b = mService.makeSurfaceBuilder(mSession)
+                 .setSize(mSurfaceSize, mSurfaceSize)
+                 .setOpaque(true);
+diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
+index 1880e9fa362..37f0bb907f5 100644
+--- a/services/java/com/android/server/SystemServer.java
++++ b/services/java/com/android/server/SystemServer.java
+@@ -120,6 +120,7 @@ import com.android.server.usage.UsageStatsService;
+ import com.android.server.vr.VrManagerService;
+ import com.android.server.webkit.WebViewUpdateService;
+ import com.android.server.wm.WindowManagerService;
++import com.android.server.fouriermachines.inputproxy.InputEventAnchorService;
+ 
+ import dalvik.system.VMRuntime;
+ 
+@@ -732,6 +733,7 @@ public final class SystemServer {
+         ConnectivityService connectivity = null;
+         NsdService serviceDiscovery= null;
+         WindowManagerService wm = null;
++        InputEventAnchorService inputeventanchor = null;
+         SerialService serial = null;
+         NetworkTimeUpdateService networkTimeUpdater = null;
+         CommonTimeManagementService commonTimeMgmtService = null;
+@@ -861,12 +863,26 @@ public final class SystemServer {
+             wm = WindowManagerService.main(context, inputManager,
+                     mFactoryTestMode != FactoryTest.FACTORY_TEST_LOW_LEVEL,
+                     !mFirstBoot, mOnlyCore, new PhoneWindowManager());
++
++
++            try{
++                Slog.i("AniOSLOG", "StartInputEventAnchorService");
++                inputeventanchor = InputEventAnchorService.main(context, inputManager);
++            }
++            catch(Throwable e){}
++            
++
+             ServiceManager.addService(Context.WINDOW_SERVICE, wm, /* allowIsolated= */ false,
+                     DUMP_FLAG_PRIORITY_CRITICAL | DUMP_FLAG_PROTO);
++
+             ServiceManager.addService(Context.INPUT_SERVICE, inputManager,
+                     /* allowIsolated= */ false, DUMP_FLAG_PRIORITY_CRITICAL);
++
++            ServiceManager.addService(Context.INPUT_EVENT_ANCHOR_SERVICE, inputeventanchor,
++                    /* allowIsolated= */ false, DUMP_FLAG_PRIORITY_CRITICAL);
+             traceEnd();
+ 
++
+             traceBeginAndSlog("SetWindowManagerService");
+             mActivityManagerService.setWindowManager(wm);
+             traceEnd();
+
+project frameworks/native/
+diff --git a/services/inputflinger/InputReader.cpp b/services/inputflinger/InputReader.cpp
+index e0cd8a005..5b2918601 100644
+--- a/services/inputflinger/InputReader.cpp
++++ b/services/inputflinger/InputReader.cpp
+@@ -7105,7 +7105,6 @@ void JoystickInputMapper::populateDeviceInfo(InputDeviceInfo* info) {
+ 
+         if (axis.axisInfo.mode == AxisInfo::MODE_SPLIT) {
+             addMotionRange(axis.axisInfo.highAxis, axis, info);
+-
+         }
+     }
+ }
+
+project kernel-v4.14/
+diff --git a/arch/arm64/configs/bcmrpi3_defconfig b/arch/arm64/configs/bcmrpi3_defconfig
+index b99289788d33..01c0d2741a3a 100644
+--- a/arch/arm64/configs/bcmrpi3_defconfig
++++ b/arch/arm64/configs/bcmrpi3_defconfig
+@@ -365,7 +365,8 @@ CONFIG_SOUND=y
+ CONFIG_SND=y
+ CONFIG_SND_HRTIMER=y
+ # CONFIG_SND_SPI is not set
+-# CONFIG_SND_USB is not set
++CONFIG_USB=y
++CONFIG_SND_USB=y
+ CONFIG_SND_SOC=y
+ CONFIG_HIDRAW=y
+ CONFIG_UHID=y
+@@ -520,4 +521,4 @@ CONFIG_SECURITY_SELINUX=y
+ CONFIG_CRYPTO_SHA512=y
+ CONFIG_ARM64_CRYPTO=y
+ CONFIG_CRC_ITU_T=y
+-CONFIG_CRC7=y
++CONFIG_CRC7=y
+\ No newline at end of file
+diff --git a/drivers/gpu/drm/drm_edid_load.c b/drivers/gpu/drm/drm_edid_load.c
+index 1c0495acf341..1cb4d2bf0e5a 100644
+--- a/drivers/gpu/drm/drm_edid_load.c
++++ b/drivers/gpu/drm/drm_edid_load.c
+@@ -31,8 +31,9 @@ module_param_string(edid_firmware, edid_firmware, sizeof(edid_firmware), 0644);
+ MODULE_PARM_DESC(edid_firmware, "Do not probe monitor, use specified EDID blob "
+ 	"from built-in data or /lib/firmware instead. ");
+ 
+-#define GENERIC_EDIDS 6
++#define GENERIC_EDIDS 7
+ static const char * const generic_edid_name[GENERIC_EDIDS] = {
++	"edid/1024x600.bin",
+ 	"edid/800x600.bin",
+ 	"edid/1024x768.bin",
+ 	"edid/1280x1024.bin",
+@@ -42,6 +43,24 @@ static const char * const generic_edid_name[GENERIC_EDIDS] = {
+ };
+ 
+ static const u8 generic_edid[GENERIC_EDIDS][128] = {
++	{
++	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
++	0x31, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x05, 0x16, 0x01, 0x03, 0x6d, 0x0f, 0x08, 0x78,
++	0xea, 0x5e, 0xc0, 0xa4, 0x59, 0x4a, 0x98, 0x25,
++	0x20, 0x50, 0x54, 0x00, 0x00, 0x01, 0x61, 0x00,
++	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
++	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0xa0, 0x0f,
++	0x00, 0x20, 0x41, 0x58, 0x16, 0x20, 0x05, 0x0d,
++	0x23, 0x00, 0x96, 0x58, 0x00, 0x00, 0x00, 0x1e,
++	0x00, 0x00, 0x00, 0xff, 0x00, 0x4c, 0x69, 0x6e,
++	0x75, 0x78, 0x20, 0x23, 0x30, 0x0a, 0x20, 0x20,
++	0x20, 0x20, 0x00, 0x00, 0x00, 0xfd, 0x00, 0x3b,
++	0x3d, 0x1d, 0x1f, 0x05, 0x00, 0x0a, 0x20, 0x20,
++	0x20, 0x20, 0x20, 0x20, 0x00, 0x00, 0x00, 0xfc,
++	0x00, 0x4c, 0x69, 0x6e, 0x75, 0x78, 0x20, 0x53,
++	0x56, 0x47, 0x41, 0x0a, 0x20, 0x20, 0x00, 0x90,
++	},
+ 	{
+ 	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
+ 	0x31, 0xd8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+index 30f4b06ee60c..8707588ed92b 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+@@ -1635,8 +1635,7 @@ static s32 brcmf_p2p_pub_af_tx(struct brcmf_cfg80211_info *cfg,
+ }
+ 
+ /**
+- * brcmf_p2p_send_action_frame() - send action frame .
+- *
++ * brcmf_p2p_send_action_frame() - send action frame.
+  * @cfg: driver private data for cfg80211 interface.
+  * @ndev: net device to transmit on.
+  * @af_params: configuration data for action frame.
+diff --git a/scripts/selinux/genheaders/genheaders.c b/scripts/selinux/genheaders/genheaders.c
+index fa48fabcb330..0aba8984cc84 100644
+--- a/scripts/selinux/genheaders/genheaders.c
++++ b/scripts/selinux/genheaders/genheaders.c
+@@ -9,7 +9,7 @@
+ #include <string.h>
+ #include <errno.h>
+ #include <ctype.h>
+-#include <sys/socket.h>
++// #include <sys/socket.h>
+ 
+ struct security_class_mapping {
+ 	const char *name;
+diff --git a/scripts/selinux/mdp/mdp.c b/scripts/selinux/mdp/mdp.c
+index ffe8179f5d41..2ef6d5518ab5 100644
+--- a/scripts/selinux/mdp/mdp.c
++++ b/scripts/selinux/mdp/mdp.c
+@@ -32,7 +32,7 @@
+ #include <stdlib.h>
+ #include <unistd.h>
+ #include <string.h>
+-#include <sys/socket.h>
++// #include <sys/socket.h>
+ 
+ static void usage(char *name)
+ {
+diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
+index acdee7795297..5ae315ab060b 100644
+--- a/security/selinux/include/classmap.h
++++ b/security/selinux/include/classmap.h
+@@ -1,5 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ #include <linux/capability.h>
++#include <linux/socket.h>
+ 
+ #define COMMON_FILE_SOCK_PERMS "ioctl", "read", "write", "create", \
+     "getattr", "setattr", "lock", "relabelfrom", "relabelto", "append", "map"

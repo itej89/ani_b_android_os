@@ -1,0 +1,38 @@
+Platform keys location in Android build :
+./build/target/product/security
+
+sudo apt-get install -y signapk
+
+java -jar signapk.jar -w platform.x509.pem platform.pk8 APPLICATION.apk APPLICATION_sign.apk
+
+
+1. Create cert folder in android app directory
+
+2. Copy platform keys to cert folder in android project
+
+3. copy platform_import_keystore script to cert folder
+	link: https://github.com/VelocityPulse/platform_import_keystore
+
+4. Run keytool-imp(tej renamed this platform_import_keystore to keytool-imp)
+./platform_import_keystore -k android.keystore -p  anipass   -pk8 platform.pk8  -cert platform.x509.pem  -a platform
+
+5. add in  "buil.graddle":app Module below text with the path to your keystore file
+
+//android
+//{
+	 signingConfigs {
+        debug {
+            storeFile     file('<path>/certs/android.keystore')
+            storePassword 'anipass'
+            keyAlias      'platform'
+            keyPassword   'anipass'
+        }
+        release {
+            storeFile     file('<path>/certs/android.keystore')
+            storePassword 'anipass'
+            keyAlias      'platform'
+            keyPassword   'anipass'
+        }
+    }
+
+//}
